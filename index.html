@@ -18,7 +18,11 @@ body {
   padding: 9px 16px; border-bottom: 1px solid rgba(255,255,255,0.06);
   display: flex; align-items: center; justify-content: space-between;
   background: rgba(255,255,255,0.02); flex-shrink: 0;
+  position: relative;
 }
+.progress-track { position: absolute; left: 0; bottom: -1px; height: 2px; width: 100%; background: rgba(255,255,255,0.03); overflow: hidden; pointer-events: none; }
+.progress-fill  { height: 100%; background: linear-gradient(90deg, #7c9fff, #c882ff); width: 0; transition: width 0.35s ease-out; }
+.kbd-hint { font-size: 9px; font-family: monospace; color: rgba(255,255,255,0.25); margin-right: 4px; letter-spacing: 0.03em; }
 .header-title { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.45; }
 .header-right { display: flex; align-items: center; gap: 10px; }
 .header-badge { font-size: 10px; font-family: monospace; padding: 2px 8px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); opacity: 0.45; }
@@ -164,7 +168,10 @@ body {
 
 /* ── MCP DETAIL ── */
 .mcp-detail { border: 1px solid rgba(124,159,255,0.15); border-radius: 6px; background: rgba(124,159,255,0.03); padding: 7px 9px; }
-.mcp-detail-title { font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(124,159,255,0.55); margin-bottom: 7px; }
+.mcp-detail-title { font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(124,159,255,0.55); margin-bottom: 7px; display: flex; justify-content: space-between; align-items: center; }
+.mcp-primer-toggle { font-size: 8.5px; color: rgba(255,180,100,0.65); text-decoration: none; letter-spacing: 0; text-transform: none; font-weight: 600; padding: 1px 5px; border-radius: 3px; }
+.mcp-primer-toggle:hover { background: rgba(255,180,100,0.1); color: #ffb464; }
+.mcp-primer.collapsed { display: none; }
 .mcp-call-block { margin-bottom: 8px; padding-left: 8px; border-left: 2px solid rgba(124,159,255,0.2); }
 .mcp-call-block:last-child { margin-bottom: 0; }
 .mcp-call-name { font-size: 9px; font-family: 'SF Mono',monospace; color: rgba(200,140,255,0.9); margin-bottom: 1px; }
@@ -215,7 +222,7 @@ const STATES = [
 
   // 2 — Meta spawns Research
   { label:'Meta Orchestrator \u2192 spawns Research Agent',
-    delta:[{c:'agent',t:'  [ Meta Orchestrator: spawning sub-agent ]'},{c:'agent',t:'  [ Research Agent (Opus): starting ]'},{c:'dim',t:'    model: claude-opus-4-6   tools: spawn, read, write'}],
+    delta:[{c:'agent',t:'  [ Meta Orchestrator: spawning sub-agent ]'},{c:'agent',t:'  [ Research Agent (Opus): starting ]'},{c:'dim',t:'    model: claude-opus-4-7   tools: spawn, read, write'}],
     nodes:{meta:'active',research:'waiting',inv:'hidden',haiku:'hidden',mcp:'hidden',db:'hidden'}, edges:['meta-research'],
     db:[false,false,false,false], stats:{agents:2,loops:0,mcp:0,gaps:4}, loop:false, mcp:[] },
 
@@ -327,11 +334,13 @@ const STATES = [
 <div class="header">
   <div class="header-title">Agentic COB Rollout &mdash; Session 0 Demo</div>
   <div class="header-right">
+    <span class="kbd-hint" title="Press Right Arrow to advance">→ key</span>
     <button class="demo-btn demo-btn-reset" onclick="demoReset()" title="Reset to step 0">Reset</button>
-    <button class="demo-btn demo-btn-next" id="btn-next" onclick="demoAdvance()">Next →</button>
+    <button class="demo-btn demo-btn-next" id="btn-next" onclick="demoAdvance()" title="Advance one step (→)">Next →</button>
     <div class="header-badge" id="hdr-badge">step 0 / 17</div>
     <div class="conn-dot offline" id="conn-dot" title="Polling state.json"></div>
   </div>
+  <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
 </div>
 
 <div class="layout">
@@ -376,12 +385,12 @@ const STATES = [
         <g id="n-meta" class="node-group node-idle">
           <rect x="210" y="32" width="170" height="48" rx="9" ry="9"/>
           <text x="295" y="52" text-anchor="middle" font-family="Caveat,cursive" font-size="16" font-weight="700">Meta Orchestrator</text>
-          <text x="295" y="70" text-anchor="middle" font-family="Caveat,cursive" font-size="12" opacity="0.55">claude-opus-4-6</text>
+          <text x="295" y="70" text-anchor="middle" font-family="Caveat,cursive" font-size="12" opacity="0.55">claude-opus-4-7</text>
         </g>
         <g id="n-research" class="node-group node-hidden">
           <rect x="58" y="155" width="174" height="48" rx="9" ry="9"/>
           <text x="145" y="175" text-anchor="middle" font-family="Caveat,cursive" font-size="16" font-weight="700">Research Agent</text>
-          <text x="145" y="193" text-anchor="middle" font-family="Caveat,cursive" font-size="12" opacity="0.55">claude-opus-4-6</text>
+          <text x="145" y="193" text-anchor="middle" font-family="Caveat,cursive" font-size="12" opacity="0.55">claude-opus-4-7</text>
         </g>
         <g id="n-inv" class="node-group node-hidden">
           <rect x="352" y="148" width="186" height="58" rx="9" ry="9"/>
@@ -418,7 +427,7 @@ const STATES = [
       </div>
       <div class="stats-grid">
         <div class="stat-card c-agents"><div class="stat-val" id="sv-agents">0</div><div class="stat-lbl">Agents</div></div>
-        <div class="stat-card c-loops"><div class="stat-val" id="sv-loops">0</div><div class="stat-lbl">Loop iter.</div></div>
+        <div class="stat-card c-loops"><div class="stat-val" id="sv-loops">0</div><div class="stat-lbl">Loop iter. / max 5</div></div>
         <div class="stat-card c-mcp"><div class="stat-val" id="sv-mcp">0</div><div class="stat-lbl">MCP calls</div></div>
         <div class="stat-card c-gaps" id="gaps-card"><div class="stat-val" id="sv-gaps">&mdash;</div><div class="stat-lbl">Gaps</div></div>
       </div>
@@ -427,8 +436,11 @@ const STATES = [
         <div id="mcp-calls"></div>
       </div>
       <div class="mcp-detail" id="mcp-detail" style="display:none">
-        <div class="mcp-detail-title">MCP &mdash; Model Context Protocol</div>
-        <div class="mcp-primer">
+        <div class="mcp-detail-title">
+          MCP &mdash; Model Context Protocol
+          <a href="#" class="mcp-primer-toggle" id="mcp-primer-toggle" onclick="toggleMcpPrimer(event)">hide</a>
+        </div>
+        <div class="mcp-primer" id="mcp-primer">
           <div class="mcp-primer-body">
             <strong>An MCP server</strong> is a process (local or remote) that exposes tools to agents.
             <ul>
@@ -439,11 +451,13 @@ const STATES = [
             </ul>
             <p><strong>Discovery:</strong> at startup, the runtime queries each server for its manifest and injects tool schemas into the agent's system prompt.</p>
             <p><strong>Flow:</strong> agent emits <code>tool_use</code> &rarr; runtime routes by name &rarr; server hits real API &rarr; JSON result &rarr; agent sees <code>tool_result</code>.</p>
+            <p><strong>Errors:</strong> come back as <code>tool_result</code> with <code>is_error: true</code>. The agent decides whether to retry, adjust args, or surface the failure.</p>
+            <p><strong>Note:</strong> MCP also defines <em>resources</em> and <em>prompts</em> as primitives. This demo uses only tools.</p>
           </div>
         </div>
         <div id="mcp-detail-body"></div>
       </div>
-      <div class="loop-badge hidden" id="loop-badge">&#8635; Loop iteration 2 &mdash; targeted retry</div>
+      <div class="loop-badge hidden" id="loop-badge">&#8635; Loop iteration 2 / 5 &mdash; targeted retry</div>
     </div>
   </div>
 </div>
@@ -465,6 +479,8 @@ function render() {
   const vs = STATES[viewState];
   document.getElementById('hdr-badge').textContent = `step ${currentState} / ${STATES.length - 1}`;
   document.getElementById('graph-view-indicator').textContent = viewState < currentState ? `viewing step ${viewState}` : '';
+  const pf = document.getElementById('progress-fill');
+  if (pf) pf.style.width = (currentState / (STATES.length - 1) * 100) + '%';
 
   // ── Terminal: accumulated history 0..currentState ──
   const termEl = document.getElementById('terminal');
@@ -603,6 +619,36 @@ async function demoReset() {
   document.getElementById('btn-next').disabled = false;
 }
 
+function toggleMcpPrimer(e) {
+  if (e) e.preventDefault();
+  const primer = document.getElementById('mcp-primer');
+  const toggle = document.getElementById('mcp-primer-toggle');
+  if (!primer || !toggle) return;
+  const isCollapsed = primer.classList.toggle('collapsed');
+  toggle.textContent = isCollapsed ? 'show' : 'hide';
+  try { localStorage.setItem('mcp-primer-collapsed', isCollapsed ? '1' : '0'); } catch (_) {}
+}
+
+// Restore primer state on first render
+try {
+  if (localStorage.getItem('mcp-primer-collapsed') === '1') {
+    document.getElementById('mcp-primer').classList.add('collapsed');
+    document.getElementById('mcp-primer-toggle').textContent = 'show';
+  }
+} catch (_) {}
+
+// Keyboard shortcut: ArrowRight / Space advances, R resets
+document.addEventListener('keydown', (e) => {
+  if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+  if (e.key === 'ArrowRight' || (e.key === ' ' && !e.shiftKey)) {
+    e.preventDefault();
+    demoAdvance();
+  } else if (e.key === 'r' && !e.ctrlKey && !e.metaKey) {
+    e.preventDefault();
+    demoReset();
+  }
+});
+
 render();
 setInterval(poll, 1500);
 poll(); // immediate first poll
@@ -615,20 +661,20 @@ var FOCUS = [
   null,
 
   // 1 — Meta Orchestrator appears
-  { agent:'Meta Orchestrator', model:'claude-opus-4-6',
+  { agent:'Meta Orchestrator', model:'claude-opus-4-7',
     tools:['spawn_agent','write_file'],
     instruction:'You are the Meta Orchestrator for the ki-web COB Rollout.\nCoordinate the research phase for onboarding ki-web to\nthe KiDEP PropertyWW domain event stream.\n\nSpawn a Research Agent to gather all context\nbefore any code is written.',
     thinking:null, output:null },
 
   // 2 — Meta spawns Research
-  { agent:'Meta Orchestrator', model:'claude-opus-4-6',
+  { agent:'Meta Orchestrator', model:'claude-opus-4-7',
     tools:['spawn_agent','write_file'],
     instruction:'You are the Meta Orchestrator for the ki-web COB Rollout.\nCoordinate the research phase for onboarding ki-web to\nthe KiDEP PropertyWW domain event stream.\n\nSpawn a Research Agent to gather all context\nbefore any code is written.',
     thinking:'Spawning Research Agent (Opus) with spawn + write tools.\nPassing the ki-web task brief and required output format.\nResearch will coordinate all retrieval via sub-agents.',
     output:null },
 
   // 3 — Research reads context
-  { agent:'Research Agent', model:'claude-opus-4-6',
+  { agent:'Research Agent', model:'claude-opus-4-7',
     tools:['spawn_agent','infodb_write'],
     instruction:'Task: gather 4 items for ki-web COB onboarding:\n  1. Projection structure (existing ki-web patterns)\n  2. KiDEP event schema (PropertyWW domain events)\n  3. COB Rollout Playbook \u2014 ki-web section\n  4. Stream config conventions\n\nDelegate retrieval to a Haiku sub-agent (read-only tools).\nWrite completed findings to: info-db/ki-web.md',
     thinking:'I need 4 items. I can parallelize most with 3 MCP calls:\ngithub \u2192 projections + config, notion \u2192 playbook.\nKiDEP schema may need a second targeted pass \u2014\nI\'ll validate after pass 1 and loop if needed.',
@@ -659,10 +705,10 @@ var FOCUS = [
     tools:['github_search','notion_fetch','jira_search'],
     instruction:null,
     thinking:'github \u2713 \u2014 PropertyWW + FI projection files found.\nNo KiDEP schema in results \u2014 not in projection search scope.\nWriting 3 entries to DB. Schema gap flagged in return value.',
-    output:null },
+    output:'# Haiku returns to Research:\n{\n  entries_written: 3,\n  gaps: ["KiDEP event schema not in ki-web repo"],\n  suggested_next: "search kidep repo for .proto"\n}' },
 
   // 8 — Research reviews DB
-  { agent:'Research Agent', model:'claude-opus-4-6',
+  { agent:'Research Agent', model:'claude-opus-4-7',
     tools:['spawn_agent','infodb_write'],
     instruction:null,
     thinking:'DB has 3/4 entries. KiDEP event schema missing.\nHaiku searched ki-web repo \u2014 schema lives in kidep repo.\nSpawning Assumptions Invalidator to formally confirm the gap\nbefore committing to a second retrieval pass.',
@@ -689,7 +735,7 @@ var FOCUS = [
     output:null },
 
   // 12 — Loop begins
-  { agent:'Research Agent', model:'claude-opus-4-6',
+  { agent:'Research Agent', model:'claude-opus-4-7',
     tools:['spawn_agent','infodb_write'],
     instruction:null,
     thinking:'Gap confirmed: KiDEP event schema missing.\nIteration 2 of 5 (loop guard: max 5, then exit with partial).\nI know exactly what\'s needed \u2014 PropertyWWRisk.proto\nin the kidep repo. Spawning Haiku with a precise query.',
@@ -723,11 +769,11 @@ var FOCUS = [
     output:null },
 
   // 17 — Complete
-  { agent:'Research Agent', model:'claude-opus-4-6',
+  { agent:'Research Agent', model:'claude-opus-4-7',
     tools:null,
     instruction:null,
     thinking:'Research phase complete. Returning to Meta Orchestrator.',
-    output:'# info-db/ki-web.md\n\nProjection structure  \u2713  PropertyWW + FI patterns\nKiDEP event schema    \u2713  PropertyWWRisk.proto\nCOB Rollout Playbook  \u2713  ki-web section\nConfig conventions    \u2713  stream, topic, registry\n\nReady for Build Agent \u2192 Zone 3.' },
+    output:'# info-db/ki-web.md\n\nProjection structure  \u2713  PropertyWW + FI patterns\nKiDEP event schema    \u2713  PropertyWWRisk.proto\nCOB Rollout Playbook  \u2713  ki-web section\nConfig conventions    \u2713  stream, topic, registry\n\n\u2014\u2014\u2014 Run summary \u2014\u2014\u2014\nAgents spawned:  3 (Meta, Research, Haiku, Invalidator)\nLoop iterations: 2 / 5 max\nMCP calls:       4\nEst. cost:       ~$0.03 (mostly Haiku retrieval)\nWall time:       ~9 s\n\nReady for Build Agent \u2192 Zone 3.' },
 ];
 
 // Patch focus into STATES
@@ -800,21 +846,21 @@ var MCP_DETAIL = {
 // Per-step concept explanations (tutorial callouts)
 var CONCEPTS = {
   1: { title:'Orchestrator pattern',
-       body:'The Meta agent doesn\'t retrieve or build \u2014 it only decides WHAT to spawn and WHEN. Splitting this "manager" layer from the do-ers makes debugging and scoping easier than one giant agent.' },
+       body:'The Meta agent doesn\'t retrieve or build \u2014 it only decides WHAT to spawn and WHEN. Why split it out? A single fat agent with 15 tools faces a 15-way branch on every decision, and its context balloons with every tool_result. A manager layer keeps decisions narrow and context clean.' },
   2: { title:'Sub-agent spawning',
-       body:'Spawning creates an isolated context: own system prompt, own tool list, own message history. Parent only sees the final completion \u2014 not the sub-agent\'s internal turns.' },
+       body:'Spawning creates an isolated context: own system prompt, own tool list, own message history. Parent only sees the final completion \u2014 not the sub-agent\'s internal turns. This keeps the parent\'s context window small (a real constraint \u2014 every tool_result adds tokens).' },
   3: { title:'Thinking vs. doing',
        body:'"Thinking" = extended reasoning, the agent\'s scratchpad. Visible to orchestrators for debugging, invisible to end users. Research plans strategy here before emitting any tool call.' },
   4: { title:'Model tiering + least privilege',
-       body:'Haiku costs ~20\u00d7 less than Opus. For bounded retrieval (no reasoning needed), use the cheapest capable model. Read-only tools also enforce least privilege \u2014 Haiku cannot mutate anything.' },
+       body:'Haiku is roughly 15\u00d7 cheaper than Opus per token. For bounded retrieval (no reasoning needed), use the cheapest capable model. Read-only tools also enforce least privilege \u2014 Haiku cannot mutate anything.' },
   5: { title:'Tools are the agent\'s world',
-       body:'A tool is a callable function declared in the agent\'s prompt. Calling one = emitting a structured tool_use block. The runtime dispatches \u2014 via MCP for tools registered with an MCP server.' },
+       body:'A tool is a callable function declared in the agent\'s prompt. Calling one = emitting a structured tool_use block; the runtime dispatches it, via MCP if registered with a server. Tool names shown here (github_search, infodb_write) are simplified \u2014 real SDK primitives would be Task for spawning, Write for files, and the actual MCP tool names (e.g. github.search_code).' },
   7: { title:'Structured memory',
        body:'The Information DB is a file, but with a schema defined by the parent agent. Schema-defined output makes it consumable by the next phase without interpretation \u2014 this is what enables loops.' },
   9: { title:'Separation of concerns',
        body:'Research wants to "be done." Invalidator\'s only incentive is "find what\'s missing." Different objectives produce better signal than self-evaluation. Common pattern: producer + critic.' },
   11:{ title:'Structural gap detection',
-       body:'The Invalidator compares the DB against a required-entries list. Deterministic, specific, no vibe judgment \u2014 produces a concrete "schema missing" message, not "research looks incomplete."' },
+       body:'The Invalidator checks the DB against a required-entries checklist. Still an LLM (so still probabilistic), but the checklist forces a concrete verdict \u2014 "schema missing," not "research looks incomplete."' },
   12:{ title:'Bounded iteration',
        body:'The loop is capped at 5 iterations. Past that: escalate to a human with partial results. Unbounded loops are a classic agent failure mode \u2014 always set a ceiling.' },
   17:{ title:'Context handoff',
