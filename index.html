@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- NO meta refresh — uses fetch polling instead. Page never reloads. -->
+<title>Agentic COB Rollout — Session 0 Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #0f1117; color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  height: 100vh; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.header {
+  padding: 9px 16px; border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(255,255,255,0.02); flex-shrink: 0;
+}
+.header-title { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.45; }
+.header-right { display: flex; align-items: center; gap: 10px; }
+.header-badge { font-size: 10px; font-family: monospace; padding: 2px 8px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); opacity: 0.45; }
+.conn-dot { width: 7px; height: 7px; border-radius: 50%; background: #64dc96; opacity: 0.6; }
+.conn-dot.offline { background: #ff5f56; }
+.demo-btn {
+  font-size: 11px; font-weight: 700; font-family: 'SF Mono', monospace;
+  padding: 4px 14px; border-radius: 6px; border: none; cursor: pointer;
+  letter-spacing: 0.04em; transition: opacity 0.12s, transform 0.08s;
+}
+.demo-btn:active { transform: scale(0.96); }
+.demo-btn-next  { background: #7c9fff; color: #0f1117; }
+.demo-btn-reset { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.45); border: 1px solid rgba(255,255,255,0.12); }
+.demo-btn:disabled { opacity: 0.3; cursor: default; }
+
+.layout { display: grid; grid-template-columns: 300px 1fr 300px; flex: 1; overflow: hidden; }
+.panel { border-right: 1px solid rgba(255,255,255,0.06); overflow: hidden; display: flex; flex-direction: column; }
+.panel:last-child { border-right: none; }
+.panel-header {
+  padding: 7px 14px; background: rgba(255,255,255,0.025);
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+  opacity: 0.45; display: flex; align-items: center; gap: 5px; flex-shrink: 0;
+}
+.panel-header-right { margin-left: auto; font-size: 9px; font-family: monospace; color: #7c9fff; opacity: 0.7; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.dot { width: 7px; height: 7px; border-radius: 50%; }
+.dot-r { background: #ff5f56; } .dot-y { background: #ffbd2e; } .dot-g { background: #27c93f; }
+
+/* ── TERMINAL ── */
+.terminal-body {
+  flex: 3; min-height: 0; padding: 14px 10px 14px 14px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 11px; line-height: 1.85;
+  overflow-y: auto; background: #090b0f;
+}
+.t-prompt { color: #7c9fff; display: block; margin-bottom: 2px; }
+.t-narrate { color: #ffb464; display: block; }
+.t-agent   { color: #c882ff; display: block; }
+.t-output  { color: #64dc96; display: block; }
+.t-dim     { opacity: 0.32; display: block; font-size: 10.5px; }
+.t-blank   { display: block; height: 4px; }
+.t-cursor  { display: inline-block; width: 7px; height: 12px; background: #7c9fff; vertical-align: middle; animation: blink 1s step-end infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+.step-block {
+  border-left: 2px solid transparent;
+  padding: 3px 0 3px 8px; margin: 5px 0;
+  cursor: pointer;
+  border-radius: 0 3px 3px 0;
+  transition: border-left-color 0.15s, background 0.15s, opacity 0.2s;
+}
+.step-block:hover { border-left-color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.018); }
+.step-block.is-viewing { border-left-color: #7c9fff; background: rgba(124,159,255,0.05); }
+.step-block.is-past { opacity: 0.5; }
+.step-block.is-past:hover { opacity: 0.78; }
+
+.step-hdr {
+  font-weight: 700; font-size: 10.5px;
+  color: rgba(255,180,100,0.6);
+  padding: 3px 0 3px; display: flex; align-items: center; gap: 5px;
+  user-select: none; letter-spacing: 0.01em;
+}
+.step-block.is-viewing .step-hdr { color: #ffb464; }
+.step-hdr-dot { width: 5px; height: 5px; border-radius: 50%; background: rgba(255,255,255,0.15); flex-shrink: 0; }
+.step-block.is-viewing .step-hdr-dot { background: #7c9fff; }
+.step-hdr-hint { font-size: 8.5px; font-weight: 400; color: rgba(124,159,255,0.45); margin-left: auto; opacity: 0; transition: opacity 0.15s; }
+.step-block:hover .step-hdr-hint { opacity: 1; }
+
+/* ── GRAPH ── */
+.graph-body { flex: 1; display: flex; align-items: center; justify-content: center; padding: 14px; background: #090b0f; }
+.node-group { transition: opacity 0.25s; }
+.node-hidden { display: none; }
+.node-idle rect    { fill: rgba(255,255,255,0.05); stroke: rgba(255,255,255,0.2); stroke-width: 1.5; }
+.node-idle text    { fill: rgba(255,255,255,0.5); }
+.node-waiting rect { fill: rgba(255,255,255,0.025); stroke: rgba(255,255,255,0.12); stroke-width: 1.2; }
+.node-waiting text { fill: rgba(255,255,255,0.3); }
+.node-active rect  { fill: rgba(124,159,255,0.15); stroke: #7c9fff; stroke-width: 2; }
+.node-active text  { fill: #ccd8ff; }
+.node-active       { animation: node-glow 1.5s ease-in-out infinite; }
+.node-done rect    { fill: rgba(100,220,150,0.12); stroke: #64dc96; stroke-width: 1.5; }
+.node-done text    { fill: #80e8b2; }
+@keyframes node-glow {
+  0%,100% { filter: drop-shadow(0 0 4px rgba(124,159,255,0.45)); }
+  50%      { filter: drop-shadow(0 0 12px rgba(124,159,255,0.9)); }
+}
+.edge { fill: none; stroke-width: 1.5; }
+.edge-hidden { display: none; }
+.edge-blue  { stroke: rgba(124,159,255,0.45); }
+.edge-green { stroke: rgba(100,220,150,0.6); }
+.edge-loop  { stroke: rgba(255,180,100,0.75); stroke-dasharray: 6 3; }
+.edge-label { font-family: 'Caveat', cursive; font-size: 12px; fill: rgba(255,255,255,0.3); pointer-events: none; }
+
+/* ── RIGHT PANEL ── */
+.right-body { flex: 1; padding: 10px 11px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; background: #090b0f; }
+
+.info-db { border: 1px solid rgba(100,220,150,0.2); border-radius: 8px; background: rgba(100,220,150,0.03); padding: 9px 11px; }
+.db-title { font-size: 10.5px; font-weight: 700; color: #64dc96; margin-bottom: 7px; display: flex; justify-content: space-between; align-items: center; }
+.db-count { font-family: monospace; font-size: 10px; opacity: 0.65; }
+.db-entry { padding: 5px 7px; border-radius: 4px; background: rgba(255,255,255,0.025); margin-bottom: 3px; border: 1px solid transparent; transition: opacity 0.3s, border-color 0.3s; }
+.db-entry.empty { opacity: 0.18; }
+.db-entry.filled { opacity: 1; border-color: rgba(100,220,150,0.15); }
+.db-entry-top { display: flex; align-items: center; gap: 5px; margin-bottom: 2px; }
+.db-check { color: #64dc96; font-size: 11px; flex-shrink: 0; }
+.db-pend  { color: rgba(255,255,255,0.2); font-size: 11px; flex-shrink: 0; }
+.db-entry-title { font-size: 10.5px; font-weight: 700; color: #e0e0e0; }
+.db-entry-src { font-size: 8.5px; font-family: 'SF Mono', monospace; color: rgba(124,159,255,0.7); margin-left: auto; flex-shrink: 0; }
+.db-entry-detail { font-size: 9.5px; line-height: 1.45; color: rgba(255,255,255,0.48); padding-left: 16px; }
+.db-entry-files { font-size: 8.5px; font-family: 'SF Mono', monospace; color: rgba(255,255,255,0.22); padding-left: 16px; margin-top: 1px; }
+
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+.stat-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 7px 9px; }
+.stat-val { font-size: 22px; font-weight: 700; font-family: 'SF Mono', monospace; line-height: 1; margin-bottom: 2px; }
+.stat-lbl { font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.38; }
+.c-agents .stat-val { color: #7c9fff; }
+.c-loops  .stat-val { color: #ffb464; }
+.c-mcp    .stat-val { color: #c882ff; }
+.c-gaps   .stat-val { color: #ff8888; }
+.c-gaps.zero .stat-val { color: #64dc96; }
+
+.mcp-log { border: 1px solid rgba(200,130,255,0.18); border-radius: 6px; background: rgba(200,130,255,0.03); padding: 7px 9px; }
+.mcp-log-title { font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(200,130,255,0.65); margin-bottom: 5px; }
+.mcp-row { display: flex; align-items: flex-start; gap: 5px; font-size: 9.5px; font-family: 'SF Mono', monospace; line-height: 1.55; margin-bottom: 1px; }
+.mcp-pending { color: rgba(255,180,100,0.85); }
+.mcp-done    { color: rgba(100,220,150,0.8); }
+.mcp-new     { color: rgba(200,130,255,0.9); }
+.mcp-sym     { flex-shrink: 0; font-size: 10px; }
+
+.loop-badge { padding: 6px 9px; background: rgba(255,180,100,0.07); border: 1px solid rgba(255,180,100,0.22); border-radius: 6px; font-size: 9.5px; font-family: 'SF Mono', monospace; color: #ffb464; display: flex; align-items: center; gap: 5px; }
+.loop-badge.hidden { display: none; }
+
+/* ── PROMPT / THINKING PANEL ── */
+.prompt-panel { flex: 2; min-height: 0; border-top: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; overflow: hidden; }
+.prompt-panel-hdr { padding: 5px 14px; background: rgba(255,255,255,0.02); border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.4; flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
+.prompt-tag { font-size: 8px; font-weight: 700; padding: 1px 7px; border-radius: 3px; background: rgba(124,159,255,0.18); color: #9db5ff; text-transform: none; letter-spacing: 0; opacity: 1; white-space: nowrap; }
+.prompt-body { flex: 1; overflow-y: auto; padding: 9px 14px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 10px; line-height: 1.6; }
+.p-lbl { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.22); margin-top: 8px; margin-bottom: 3px; display: block; }
+.p-lbl:first-child { margin-top: 0; }
+.p-prompt { color: rgba(180,210,255,0.82); white-space: pre-wrap; display: block; }
+.p-think  { color: rgba(200,140,255,0.88); white-space: pre-wrap; font-style: italic; display: block; }
+.p-tools  { color: rgba(100,220,150,0.65); font-size: 9px; display: block; }
+.p-none   { color: rgba(255,255,255,0.15); font-style: italic; font-size: 9.5px; }
+.p-output { color: rgba(100,220,150,0.82); white-space: pre-wrap; display: block; border: 1px solid rgba(100,220,150,0.2); border-radius: 4px; padding: 6px 8px; background: rgba(100,220,150,0.04); margin-top: 2px; }
+
+/* ── MCP DETAIL ── */
+.mcp-detail { border: 1px solid rgba(124,159,255,0.15); border-radius: 6px; background: rgba(124,159,255,0.03); padding: 7px 9px; }
+.mcp-detail-title { font-size: 8.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: rgba(124,159,255,0.55); margin-bottom: 7px; }
+.mcp-call-block { margin-bottom: 8px; padding-left: 8px; border-left: 2px solid rgba(124,159,255,0.2); }
+.mcp-call-block:last-child { margin-bottom: 0; }
+.mcp-call-name { font-size: 9px; font-family: 'SF Mono',monospace; color: rgba(200,140,255,0.9); margin-bottom: 1px; }
+.mcp-call-server { font-size: 8.5px; color: rgba(255,255,255,0.28); margin-bottom: 4px; }
+.mcp-call-lbl { font-size: 7.5px; text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.2); margin-bottom: 1px; display: block; }
+.mcp-call-req { font-family: 'SF Mono',monospace; font-size: 8.5px; white-space: pre; color: rgba(124,159,255,0.7); display: block; }
+.mcp-call-res { font-family: 'SF Mono',monospace; font-size: 8.5px; white-space: pre; color: rgba(100,220,150,0.82); margin-top: 3px; display: block; }
+.mcp-call-pend { font-size: 8.5px; color: rgba(255,180,100,0.5); font-style: italic; }
+
+/* ── CONCEPT CALLOUT (tutorial) ── */
+.p-concept { color: rgba(255,210,150,0.88); display: block; border: 1px solid rgba(255,180,100,0.22); border-radius: 4px; padding: 7px 9px; background: rgba(255,180,100,0.05); margin-top: 3px; font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; font-size: 10px; line-height: 1.55; }
+.p-concept strong { display: block; font-size: 10.5px; color: #ffb464; margin-bottom: 4px; font-weight: 700; }
+
+/* ── MCP PRIMER ── */
+.mcp-primer { background: rgba(255,180,100,0.04); border: 1px solid rgba(255,180,100,0.18); border-radius: 5px; padding: 8px 10px; margin-bottom: 9px; }
+.mcp-primer-body { font-size: 9.5px; line-height: 1.55; color: rgba(255,255,255,0.55); font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
+.mcp-primer-body strong { color: rgba(255,210,140,0.9); font-weight: 700; }
+.mcp-primer-body code { background: rgba(200,140,255,0.1); color: rgba(200,140,255,0.9); padding: 0 3px; border-radius: 2px; font-size: 9px; }
+.mcp-primer-body ul { list-style: none; padding: 4px 0 4px 2px; margin: 3px 0; }
+.mcp-primer-body li { padding: 1px 0 1px 13px; position: relative; }
+.mcp-primer-body li:before { content: "\2022"; color: rgba(255,180,100,0.6); position: absolute; left: 2px; }
+.mcp-primer-body p { margin: 4px 0 0 0; }
+</style>
+</head>
+<body>
+
+<script>
+// ── State data ──
+const DB_ENTRIES = [
+  { title: "Projection structure",     src: "github:ki-web",    detail: "PropertyWW + FI patterns. KiDEP consumer \u2192 domain model \u2192 read model.", files: "PropertyWorldwideProjection.kt, FinancialInstitutionsProjection.kt" },
+  { title: "KiDEP event schema",       src: "github:kidep",     detail: "PropertyWWRisk.proto \u2014 eventType, policyRef, riskAddress, sumInsured, coverageType.", files: "PropertyWWRisk.proto \u2014 found on pass 2" },
+  { title: "COB Rollout Playbook",     src: "notion",           detail: "ki-web section: KiDEP subscription, MDM pre-checks, stream config, deploy steps.", files: "notion:COB-Rollout-Playbook \u00b7 ki-web" },
+  { title: "Config conventions",       src: "github:ki-web",    detail: "ki-web-stream.yaml \u2014 routing, schema registry, retention, topic naming.", files: "ki-web-stream.yaml, application.yml" },
+];
+
+// Each MCP call: { call, status: 'pending'|'done', isNew? }
+const STATES = [
+  // 0 — Idle
+  { label:null, delta:[{c:'prompt',t:'> /session-zero-demo'}],
+    nodes:{meta:'idle',research:'hidden',inv:'hidden',haiku:'hidden',mcp:'hidden',db:'hidden'}, edges:[],
+    db:[false,false,false,false], stats:{agents:0,loops:0,mcp:0,gaps:'\u2014'}, loop:false, mcp:[] },
+
+  // 1 — Intro
+  { label:'\u2550\u2550\u2550 WHAT YOU\u2019RE ABOUT TO SEE \u2550\u2550\u2550',
+    delta:[{c:'narrate',t:'A research loop \u2014 the exact pattern we\u2019re building for COBs.'},{c:'narrate',t:'Each micro-step shown. Every step maps directly to Zone\u00a01+2.'}],
+    nodes:{meta:'active',research:'hidden',inv:'hidden',haiku:'hidden',mcp:'hidden',db:'hidden'}, edges:[],
+    db:[false,false,false,false], stats:{agents:1,loops:0,mcp:0,gaps:4}, loop:false, mcp:[] },
+
+  // 2 — Meta spawns Research
+  { label:'Meta Orchestrator \u2192 spawns Research Agent',
+    delta:[{c:'agent',t:'  [ Meta Orchestrator: spawning sub-agent ]'},{c:'agent',t:'  [ Research Agent (Opus): starting ]'},{c:'dim',t:'    model: claude-opus-4-6   tools: spawn, read, write'}],
+    nodes:{meta:'active',research:'waiting',inv:'hidden',haiku:'hidden',mcp:'hidden',db:'hidden'}, edges:['meta-research'],
+    db:[false,false,false,false], stats:{agents:2,loops:0,mcp:0,gaps:4}, loop:false, mcp:[] },
+
+  // 3 — Research reads context
+  { label:'Research Agent reads context + decides strategy',
+    delta:[{c:'narrate',t:'Research Agent reads system prompt + ki-web task brief.'},{c:'narrate',t:'Decides what it needs: projections, KiDEP schema, playbook, config.'},{c:'dim',t:'    reading: CLAUDE.md, task context, ki-web brief'},{c:'dim',t:'    strategy: 3 parallel retrieval queries \u2192 Information DB'}],
+    nodes:{meta:'done',research:'active',inv:'hidden',haiku:'hidden',mcp:'hidden',db:'hidden'}, edges:['meta-research'],
+    db:[false,false,false,false], stats:{agents:2,loops:1,mcp:0,gaps:4}, loop:false, mcp:[] },
+
+  // 4 — Research spawns Haiku
+  { label:'Research Agent \u2192 spawns Retrieve Information (Haiku)',
+    delta:[{c:'agent',t:'  [ Research Agent: spawning retrieval sub-agent ]'},{c:'agent',t:'  [ Retrieve Information (Haiku): starting ]'},{c:'dim',t:'    model: claude-haiku-4-5   tools: read-only (github, notion, jira)'},{c:'dim',t:'    task: fetch projections, playbook, config conventions'}],
+    nodes:{meta:'done',research:'active',inv:'hidden',haiku:'waiting',mcp:'hidden',db:'hidden'}, edges:['meta-research','research-haiku','research-inv'],
+    db:[false,false,false,false], stats:{agents:3,loops:1,mcp:0,gaps:4}, loop:false, mcp:[] },
+
+  // 5 — Haiku reads req + fires MCP calls
+  { label:'Haiku reads requirements \u2192 fires MCP calls',
+    delta:[{c:'narrate',t:'Haiku reads its task and available connectors.'},{c:'dim',t:'    github_search("ki-web projection")       \u27f3 pending'},{c:'dim',t:'    notion_fetch("COB Rollout Playbook")      \u27f3 pending'},{c:'dim',t:'    jira_search("ki-web COB config")          \u27f3 pending'}],
+    nodes:{meta:'done',research:'waiting',inv:'hidden',haiku:'active',mcp:'active',db:'hidden'}, edges:['meta-research','research-haiku','research-inv','haiku-mcp'],
+    db:[false,false,false,false], stats:{agents:3,loops:1,mcp:3,gaps:4}, loop:false,
+    mcp:[{call:'github_search("ki-web projection")',status:'pending'},{call:'notion_fetch("COB Rollout Playbook")',status:'pending'},{call:'jira_search("ki-web COB config")',status:'pending'}] },
+
+  // 6 — Partial MCP responses
+  { label:'MCP responses arriving \u2014 github still pending',
+    delta:[{c:'output',t:'  \u2713 notion_fetch \u2014 complete'},{c:'output',t:'  \u2713 jira_search \u2014 complete'},{c:'dim',t:'    github_search("ki-web projection")       \u27f3 waiting...'}],
+    nodes:{meta:'done',research:'waiting',inv:'hidden',haiku:'active',mcp:'active',db:'hidden'}, edges:['meta-research','research-haiku','research-inv','haiku-mcp'],
+    db:[false,false,false,false], stats:{agents:3,loops:1,mcp:3,gaps:4}, loop:false,
+    mcp:[{call:'github_search("ki-web projection")',status:'pending'},{call:'notion_fetch("COB Rollout Playbook")',status:'done'},{call:'jira_search("ki-web COB config")',status:'done'}] },
+
+  // 7 — All MCP back, Haiku writes to DB
+  { label:'All MCP responses back \u2192 Haiku writes to Information DB',
+    delta:[{c:'output',t:'  \u2713 github_search \u2014 complete (PropertyWW, FI projections found)'},{c:'agent',t:'  [ Haiku: writing 3 entries to Information DB ]'},{c:'dim',t:'    \u2192 Projection structure (PropertyWW, FI patterns)'},{c:'dim',t:'    \u2192 COB Rollout Playbook \u2014 ki-web section'},{c:'dim',t:'    \u2192 Config conventions (ki-web stream)'}],
+    nodes:{meta:'done',research:'waiting',inv:'hidden',haiku:'active',mcp:'done',db:'active'}, edges:['meta-research','research-haiku','research-inv','haiku-mcp','haiku-db'],
+    db:[true,false,true,true], stats:{agents:3,loops:1,mcp:3,gaps:1}, loop:false,
+    mcp:[{call:'github_search("ki-web projection")',status:'done'},{call:'notion_fetch("COB Rollout Playbook")',status:'done'},{call:'jira_search("ki-web COB config")',status:'done'}] },
+
+  // 8 — Research reviews DB
+  { label:'Haiku complete \u2192 Research Agent reviews Information DB',
+    delta:[{c:'agent',t:'  [ Retrieve Information: complete \u2014 returning to Research ]'},{c:'narrate',t:'Research Agent reviews Information DB. 3 entries written.'},{c:'narrate',t:'Decides: ready to validate. Calling Assumptions Invalidator.'}],
+    nodes:{meta:'done',research:'active',inv:'hidden',haiku:'done',mcp:'done',db:'done'}, edges:['meta-research','research-haiku','research-inv','haiku-mcp','haiku-db'],
+    db:[true,false,true,true], stats:{agents:3,loops:1,mcp:3,gaps:1}, loop:false,
+    mcp:[{call:'github_search("ki-web projection")',status:'done'},{call:'notion_fetch("COB Rollout Playbook")',status:'done'},{call:'jira_search("ki-web COB config")',status:'done'}] },
+
+  // 9 — Research spawns Assumptions Invalidator
+  { label:'Research Agent \u2192 spawns Assumptions Invalidator',
+    delta:[{c:'agent',t:'  [ Research Agent: spawning Assumptions Invalidator ]'},{c:'agent',t:'  [ Assumptions Invalidator (Sonnet): starting ]'},{c:'dim',t:'    model: claude-sonnet-4-6   task: validate research completeness'}],
+    nodes:{meta:'done',research:'active',inv:'waiting',haiku:'done',mcp:'done',db:'done'}, edges:['meta-research','research-haiku','research-inv','haiku-mcp','haiku-db'],
+    db:[true,false,true,true], stats:{agents:3,loops:1,mcp:3,gaps:1}, loop:false,
+    mcp:[{call:'github_search("ki-web projection")',status:'done'},{call:'notion_fetch("COB Rollout Playbook")',status:'done'},{call:'jira_search("ki-web COB config")',status:'done'}] },
+
+  // 10 — Invalidator reads DB
+  { label:'Assumptions Invalidator reads system prompt \u2192 queries DB',
+    delta:[{c:'narrate',t:'Invalidator reads its prompt + queries Information DB.'},{c:'dim',t:'    infodb_query("ki-web \u2014 all entries")'},{c:'output',t:'  \u2713 3 entries retrieved from Information DB'}],
+    nodes:{meta:'done',research:'waiting',inv:'active',haiku:'done',mcp:'done',db:'active'}, edges:['meta-research','research-haiku','research-inv','haiku-mcp','haiku-db','db-inv'],
+    db:[true,false,true,true], stats:{agents:3,loops:1,mcp:3,gaps:1}, loop:false,
+    mcp:[{call:'github_search("ki-web projection")',status:'done'},{call:'notion_fetch("COB Rollout Playbook")',status:'done'},{call:'jira_search("ki-web COB config")',status:'done'}] },
+
+  // 11 — Invalidator evaluates, finds gap
+  { label:'Assumptions Invalidator evaluates \u2014 gap found',
+    delta:[{c:'output',t:'  \u2713 Projection structure: patterns found, sufficient'},{c:'output',t:'  \u2713 Config conventions: found, sufficient'},{c:'output',t:'  \u2713 COB Rollout Playbook: found, sufficient'},{c:'agent',t:'  \u2717 KiDEP event schema: NOT FOUND \u2014 REQUIRED'},{c:'agent',t:'  \u2192 Decision: research incomplete. Loop required.'}],
+    nodes:{meta:'done',research:'waiting',inv:'active',haiku:'done',mcp:'done',db:'done'}, edges:['meta-research','research-haiku','research-inv','haiku-mcp','haiku-db','db-inv'],
+    db:[true,false,true,true], stats:{agents:3,loops:1,mcp:3,gaps:1}, loop:false,
+    mcp:[{call:'github_search("ki-web projection")',status:'done'},{call:'notion_fetch("COB Rollout Playbook")',status:'done'},{call:'jira_search("ki-web COB config")',status:'done'}] },
+
+  // 12 — Invalidator reports back, loop begins
+  { label:'Invalidator \u2192 Research Agent: schema missing \u2014 loop',
+    delta:[{c:'agent',t:'  [ Assumptions Invalidator: reporting gap to Research Agent ]'},{c:'narrate',t:'Research Agent receives gap report: KiDEP schema not found.'},{c:'narrate',t:'This is the loop. Research will retrieve again, targeted.'}],
+    nodes:{meta:'done',research:'active',inv:'done',haiku:'done',mcp:'done',db:'done'}, edges:['meta-research','research-haiku','research-inv','haiku-mcp','haiku-db','db-inv','inv-research'],
+    db:[true,false,true,true], stats:{agents:3,loops:2,mcp:3,gaps:1}, loop:true,
+    mcp:[{call:'github_search("ki-web projection")',status:'done'},{call:'notion_fetch("COB Rollout Playbook")',status:'done'},{call:'jira_search("ki-web COB config")',status:'done'}] },
+
+  // 13 — Research spawns Haiku (pass 2)
+  { label:'Research Agent \u2192 spawns Haiku again (pass 2)',
+    delta:[{c:'narrate',t:'Research Agent spawns Haiku with a targeted query'},{c:'narrate',t:'specifically for the missing KiDEP event schema.'},{c:'agent',t:'  [ Retrieve Information (Haiku): starting \u2014 pass 2 ]'},{c:'dim',t:'    task: fetch KiDEP event schema for PropertyWW COB'}],
+    nodes:{meta:'done',research:'active',inv:'done',haiku:'active',mcp:'hidden',db:'done'}, edges:['meta-research','research-haiku','research-inv','haiku-mcp','haiku-db','db-inv','inv-research'],
+    db:[true,false,true,true], stats:{agents:3,loops:2,mcp:3,gaps:1}, loop:true,
+    mcp:[{call:'github_search("ki-web projection")',status:'done'},{call:'notion_fetch("COB Rollout Playbook")',status:'done'},{call:'jira_search("ki-web COB config")',status:'done'}] },
+
+  // 14 — Haiku fires targeted MCP call
+  { label:'Haiku fires targeted MCP call \u2014 KiDEP schema',
+    delta:[{c:'dim',t:'    github_search("KiDEP PropertyWW event schema")  \u27f3 pending'}],
+    nodes:{meta:'done',research:'waiting',inv:'done',haiku:'active',mcp:'active',db:'done'}, edges:['meta-research','research-haiku','research-inv','haiku-mcp','haiku-db','db-inv','inv-research'],
+    db:[true,false,true,true], stats:{agents:3,loops:2,mcp:4,gaps:1}, loop:true,
+    mcp:[{call:'github_search("ki-web projection")',status:'done'},{call:'notion_fetch("COB Rollout Playbook")',status:'done'},{call:'jira_search("ki-web COB config")',status:'done'},{call:'github_search("KiDEP PropertyWW event schema")',status:'pending',isNew:true}] },
+
+  // 15 — Schema retrieved + written to DB
+  { label:'Schema retrieved \u2192 written to Information DB',
+    delta:[{c:'output',t:'  \u2713 github_search \u2014 complete (PropertyWWRisk.proto found)'},{c:'agent',t:'  [ Haiku: writing KiDEP event schema to Information DB ]'},{c:'dim',t:'    \u2192 KiDEP event schema (PropertyWWRisk.proto)'},{c:'output',t:'  \u2713 Information DB: 4\u00a0/\u00a04 entries populated'}],
+    nodes:{meta:'done',research:'waiting',inv:'done',haiku:'active',mcp:'done',db:'active'}, edges:['meta-research','research-haiku','research-inv','haiku-mcp','haiku-db','db-inv','inv-research'],
+    db:[true,true,true,true], stats:{agents:3,loops:2,mcp:4,gaps:0}, loop:true,
+    mcp:[{call:'github_search("ki-web projection")',status:'done'},{call:'notion_fetch("COB Rollout Playbook")',status:'done'},{call:'jira_search("ki-web COB config")',status:'done'},{call:'github_search("KiDEP PropertyWW event schema")',status:'done',isNew:false}] },
+
+  // 16 — Research → Invalidator re-check
+  { label:'Research Agent \u2192 Assumptions Invalidator (re-check)',
+    delta:[{c:'agent',t:'  [ Retrieve Information: complete \u2014 returning to Research ]'},{c:'narrate',t:'Research calls Invalidator again to re-evaluate.'},{c:'dim',t:'    infodb_query("ki-web \u2014 all entries")'},{c:'output',t:'  \u2713 4 entries found. All required fields present.'},{c:'output',t:'  \u2713 No assumptions invalidated \u2014 research complete.'}],
+    nodes:{meta:'done',research:'waiting',inv:'active',haiku:'done',mcp:'done',db:'active'}, edges:['meta-research','research-haiku','research-inv','haiku-mcp','haiku-db','db-inv','inv-research'],
+    db:[true,true,true,true], stats:{agents:3,loops:2,mcp:4,gaps:0}, loop:false,
+    mcp:[{call:'github_search("ki-web projection")',status:'done'},{call:'notion_fetch("COB Rollout Playbook")',status:'done'},{call:'jira_search("ki-web COB config")',status:'done'},{call:'github_search("KiDEP PropertyWW event schema")',status:'done',isNew:false}] },
+
+  // 17 — Complete
+  { label:'\u2550\u2550\u2550 WHAT JUST HAPPENED \u2550\u2550\u2550',
+    delta:[{c:'output',t:'  \u2713 Assumptions Invalidator: APPROVED. Loop exits.'},{c:'narrate',t:'Research \u2192 Haiku \u2192 MCP \u2192 DB \u2192 Invalidator \u2192 gap \u2192 loop \u2192 resolve.'},{c:'narrate',t:'2 loop iterations. 4 MCP calls. 4 DB entries.'},{c:'narrate',t:'That\u2019s Zone\u00a01+2. Ready for the build agent.'},{c:'output',t:'Information DB finalised: info-db/ki-web.md'}],
+    nodes:{meta:'done',research:'done',inv:'done',haiku:'done',mcp:'done',db:'done'}, edges:['meta-research','research-haiku','research-inv','haiku-mcp','haiku-db','db-inv','inv-research'],
+    db:[true,true,true,true], stats:{agents:3,loops:2,mcp:4,gaps:0}, loop:false,
+    mcp:[{call:'github_search("ki-web projection")',status:'done'},{call:'notion_fetch("COB Rollout Playbook")',status:'done'},{call:'jira_search("ki-web COB config")',status:'done'},{call:'github_search("KiDEP PropertyWW event schema")',status:'done',isNew:false}] },
+];
+</script>
+
+<div class="header">
+  <div class="header-title">Agentic COB Rollout &mdash; Session 0 Demo</div>
+  <div class="header-right">
+    <button class="demo-btn demo-btn-reset" onclick="demoReset()" title="Reset to step 0">Reset</button>
+    <button class="demo-btn demo-btn-next" id="btn-next" onclick="demoAdvance()">Next →</button>
+    <div class="header-badge" id="hdr-badge">step 0 / 17</div>
+    <div class="conn-dot offline" id="conn-dot" title="Polling state.json"></div>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- LEFT: Terminal -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+      Claude Code &mdash; Terminal
+    </div>
+    <div class="terminal-body" id="terminal"></div>
+    <div class="prompt-panel">
+      <div class="prompt-panel-hdr">Prompt &amp; Thinking <span class="prompt-tag" id="prompt-tag"></span></div>
+      <div class="prompt-body" id="prompt-body"><span class="p-none">&mdash;</span></div>
+    </div>
+  </div>
+
+  <!-- CENTRE: Graph -->
+  <div class="panel">
+    <div class="panel-header">
+      Agent Graph &mdash; live
+      <span class="panel-header-right" id="graph-view-indicator"></span>
+    </div>
+    <div class="graph-body">
+      <svg viewBox="0 0 620 455" style="width:100%;max-height:100%;overflow:visible;">
+        <defs>
+          <marker id="arr-b" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="rgba(124,159,255,0.55)"/></marker>
+          <marker id="arr-g" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="rgba(100,220,150,0.7)"/></marker>
+          <marker id="arr-o" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="rgba(255,180,100,0.8)"/></marker>
+        </defs>
+        <!-- EDGES -->
+        <path id="e-meta-research"  d="M 255,76 L 185,155"   class="edge edge-blue edge-hidden" marker-end="url(#arr-b)"/>
+        <path id="e-research-inv"   d="M 232,178 L 352,178"  class="edge edge-blue edge-hidden" marker-end="url(#arr-b)"/>
+        <text id="el-research-inv"  x="292" y="171" class="edge-label edge-hidden" text-anchor="middle">evaluate</text>
+        <path id="e-inv-research"   d="M 400,200 Q 310,252 198,200" class="edge edge-loop edge-hidden" marker-end="url(#arr-o)"/>
+        <text id="el-inv-research"  x="302" y="248" class="edge-label edge-hidden" text-anchor="middle" fill="rgba(255,180,100,0.6)">schema missing</text>
+        <path id="e-research-haiku" d="M 145,202 L 142,297"  class="edge edge-blue edge-hidden" marker-end="url(#arr-b)"/>
+        <path id="e-haiku-mcp"      d="M 194,340 L 256,390"  class="edge edge-blue edge-hidden" marker-end="url(#arr-b)"/>
+        <path id="e-haiku-db"       d="M 230,325 L 375,325"  class="edge edge-blue edge-hidden" marker-end="url(#arr-b)"/>
+        <text id="el-haiku-db"      x="302" y="318" class="edge-label edge-hidden" text-anchor="middle">write findings</text>
+        <path id="e-db-inv"         d="M 462,298 L 462,204"  class="edge edge-blue edge-hidden" marker-end="url(#arr-b)"/>
+        <!-- NODES -->
+        <g id="n-meta" class="node-group node-idle">
+          <rect x="210" y="32" width="170" height="48" rx="9" ry="9"/>
+          <text x="295" y="52" text-anchor="middle" font-family="Caveat,cursive" font-size="16" font-weight="700">Meta Orchestrator</text>
+          <text x="295" y="70" text-anchor="middle" font-family="Caveat,cursive" font-size="12" opacity="0.55">claude-opus-4-6</text>
+        </g>
+        <g id="n-research" class="node-group node-hidden">
+          <rect x="58" y="155" width="174" height="48" rx="9" ry="9"/>
+          <text x="145" y="175" text-anchor="middle" font-family="Caveat,cursive" font-size="16" font-weight="700">Research Agent</text>
+          <text x="145" y="193" text-anchor="middle" font-family="Caveat,cursive" font-size="12" opacity="0.55">claude-opus-4-6</text>
+        </g>
+        <g id="n-inv" class="node-group node-hidden">
+          <rect x="352" y="148" width="186" height="58" rx="9" ry="9"/>
+          <text x="445" y="168" text-anchor="middle" font-family="Caveat,cursive" font-size="16" font-weight="700">Assumptions</text>
+          <text x="445" y="184" text-anchor="middle" font-family="Caveat,cursive" font-size="16" font-weight="700">Invalidator</text>
+          <text x="445" y="200" text-anchor="middle" font-family="Caveat,cursive" font-size="11" opacity="0.5">claude-sonnet-4-6</text>
+        </g>
+        <g id="n-haiku" class="node-group node-hidden">
+          <rect x="50" y="297" width="186" height="48" rx="9" ry="9"/>
+          <text x="143" y="317" text-anchor="middle" font-family="Caveat,cursive" font-size="16" font-weight="700">Retrieve Information</text>
+          <text x="143" y="335" text-anchor="middle" font-family="Caveat,cursive" font-size="12" opacity="0.55">claude-haiku-4-5</text>
+        </g>
+        <g id="n-mcp" class="node-group node-hidden">
+          <rect x="188" y="390" width="170" height="48" rx="9" ry="9"/>
+          <text x="273" y="410" text-anchor="middle" font-family="Caveat,cursive" font-size="16" font-weight="700">MCP / Connectors</text>
+          <text x="273" y="428" text-anchor="middle" font-family="Caveat,cursive" font-size="12" opacity="0.55">github &middot; notion &middot; jira</text>
+        </g>
+        <g id="n-db" class="node-group node-hidden">
+          <rect x="374" y="297" width="156" height="48" rx="9" ry="9"/>
+          <text x="452" y="317" text-anchor="middle" font-family="Caveat,cursive" font-size="16" font-weight="700">Information DB</text>
+          <text x="452" y="335" text-anchor="middle" font-family="Caveat,cursive" font-size="12" opacity="0.55">ki-web.md</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+
+  <!-- RIGHT: Info DB + Stats -->
+  <div class="panel">
+    <div class="panel-header">Info DB &amp; Stats</div>
+    <div class="right-body">
+      <div class="info-db">
+        <div class="db-title">Information DB &mdash; ki-web <span class="db-count" id="db-count">0 / 4</span></div>
+        <div id="db-entries"></div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card c-agents"><div class="stat-val" id="sv-agents">0</div><div class="stat-lbl">Agents</div></div>
+        <div class="stat-card c-loops"><div class="stat-val" id="sv-loops">0</div><div class="stat-lbl">Loop iter.</div></div>
+        <div class="stat-card c-mcp"><div class="stat-val" id="sv-mcp">0</div><div class="stat-lbl">MCP calls</div></div>
+        <div class="stat-card c-gaps" id="gaps-card"><div class="stat-val" id="sv-gaps">&mdash;</div><div class="stat-lbl">Gaps</div></div>
+      </div>
+      <div class="mcp-log" id="mcp-log" style="display:none">
+        <div class="mcp-log-title">MCP Call Log</div>
+        <div id="mcp-calls"></div>
+      </div>
+      <div class="mcp-detail" id="mcp-detail" style="display:none">
+        <div class="mcp-detail-title">MCP &mdash; Model Context Protocol</div>
+        <div class="mcp-primer">
+          <div class="mcp-primer-body">
+            <strong>An MCP server</strong> is a process (local or remote) that exposes tools to agents.
+            <ul>
+              <li>Declares a <strong>tool manifest</strong> &mdash; names, input schemas, descriptions</li>
+              <li>Implements each tool &mdash; API calls, auth, retries, pagination</li>
+              <li>Speaks <strong>JSON-RPC</strong> over stdio or HTTP/SSE</li>
+              <li>Sandboxes secrets &mdash; tokens never enter agent context</li>
+            </ul>
+            <p><strong>Discovery:</strong> at startup, the runtime queries each server for its manifest and injects tool schemas into the agent's system prompt.</p>
+            <p><strong>Flow:</strong> agent emits <code>tool_use</code> &rarr; runtime routes by name &rarr; server hits real API &rarr; JSON result &rarr; agent sees <code>tool_result</code>.</p>
+          </div>
+        </div>
+        <div id="mcp-detail-body"></div>
+      </div>
+      <div class="loop-badge hidden" id="loop-badge">&#8635; Loop iteration 2 &mdash; targeted retry</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Runtime state ──
+let currentState = 0;  // latest step written by skill
+let viewState = 0;     // which step's graph we're showing (user-controlled)
+let connected = false;
+
+function setView(n) {
+  viewState = Math.min(Math.max(0, n), currentState);
+  render();
+}
+
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function render() {
+  const vs = STATES[viewState];
+  document.getElementById('hdr-badge').textContent = `step ${currentState} / ${STATES.length - 1}`;
+  document.getElementById('graph-view-indicator').textContent = viewState < currentState ? `viewing step ${viewState}` : '';
+
+  // ── Terminal: accumulated history 0..currentState ──
+  const termEl = document.getElementById('terminal');
+  let html = '';
+  // Base prompt (state 0)
+  html += `<div class="t-prompt">&gt; /session-zero-demo</div>`;
+  // Steps 1..currentState
+  for (let n = 1; n <= currentState; n++) {
+    const st = STATES[n];
+    const isViewing = n === viewState;
+    html += `<div class="${isViewing ? 'step-block is-viewing' : 'step-block is-past'}" onclick="setView(${n})">`;
+    if (st.label) {
+      html += `<div class="step-hdr"><span class="step-hdr-dot"></span>${esc(st.label)}<span class="step-hdr-hint">click to replay</span></div>`;
+    }
+    st.delta.forEach(l => {
+      if (!l.t) { html += '<span class="t-blank"></span>'; return; }
+      html += `<div class="${l.c ? 't-'+l.c : ''}">${esc(l.t)}</div>`;
+    });
+    html += '</div>';
+  }
+  if (currentState === STATES.length - 1) html += '<span class="t-cursor"></span>';
+  termEl.innerHTML = html;
+
+  // ── Nodes ──
+  const nm = {meta:'n-meta',research:'n-research',inv:'n-inv',haiku:'n-haiku',mcp:'n-mcp',db:'n-db'};
+  Object.entries(vs.nodes).forEach(([k,s]) => {
+    const el = document.getElementById(nm[k]);
+    if (el) el.setAttribute('class', `node-group node-${s}`);
+  });
+
+  // ── Edges ──
+  const allEdges = ['meta-research','research-inv','inv-research','research-haiku','haiku-mcp','haiku-db','db-inv'];
+  const isFinal = viewState === STATES.length - 1;
+  allEdges.forEach(id => {
+    const e = document.getElementById(`e-${id}`);
+    const el = document.getElementById(`el-${id}`);
+    if (!e) return;
+    const vis = vs.edges.includes(id);
+    const isLoop = id === 'inv-research';
+    const cls = isLoop ? 'edge-loop' : (isFinal ? 'edge-green' : 'edge-blue');
+    const mrk = isLoop ? 'arr-o' : (isFinal ? 'arr-g' : 'arr-b');
+    e.setAttribute('class', `edge ${cls}${vis ? '' : ' edge-hidden'}`);
+    e.setAttribute('marker-end', `url(#${mrk})`);
+    if (el) el.setAttribute('class', `edge-label${vis ? '' : ' edge-hidden'}`);
+  });
+
+  // ── Info DB ──
+  const filled = vs.db.filter(Boolean).length;
+  document.getElementById('db-count').textContent = `${filled} / 4`;
+  document.getElementById('db-entries').innerHTML = DB_ENTRIES.map((e, i) => {
+    const on = vs.db[i];
+    if (!on) return `<div class="db-entry empty"><div class="db-entry-top"><span class="db-pend">○</span><span class="db-entry-title">${esc(e.title)}</span></div></div>`;
+    return `<div class="db-entry filled"><div class="db-entry-top"><span class="db-check">✓</span><span class="db-entry-title">${esc(e.title)}</span><span class="db-entry-src">${esc(e.src)}</span></div><div class="db-entry-detail">${esc(e.detail)}</div><div class="db-entry-files">${esc(e.files)}</div></div>`;
+  }).join('');
+
+  // ── Stats ──
+  document.getElementById('sv-agents').textContent = vs.stats.agents;
+  document.getElementById('sv-loops').textContent  = vs.stats.loops;
+  document.getElementById('sv-mcp').textContent    = vs.stats.mcp;
+  document.getElementById('sv-gaps').textContent   = vs.stats.gaps;
+  document.getElementById('gaps-card').classList.toggle('zero', vs.stats.gaps === 0);
+
+  // ── MCP log ──
+  const mcpLog = document.getElementById('mcp-log');
+  if (vs.mcp.length > 0) {
+    mcpLog.style.display = '';
+    document.getElementById('mcp-calls').innerHTML = vs.mcp.map(m => {
+      const cls = m.status === 'pending' ? 'mcp-pending' : (m.isNew ? 'mcp-new' : 'mcp-done');
+      const sym = m.status === 'pending' ? '⟳' : '✓';
+      return `<div class="mcp-row ${cls}"><span class="mcp-sym">${sym}</span>${esc(m.call)}</div>`;
+    }).join('');
+  } else { mcpLog.style.display = 'none'; }
+
+  // ── Loop badge ──
+  document.getElementById('loop-badge').classList.toggle('hidden', !vs.loop);
+  if (typeof window.afterRenderHook === 'function') window.afterRenderHook(vs);
+}
+
+// ── Polling: fetch state.json every 1.5s, re-render if state changed ──
+async function poll() {
+  try {
+    const r = await fetch('./state.json?t=' + Date.now());
+    const data = await r.json();
+    const n = parseInt(data.state);
+    if (!connected) {
+      connected = true;
+      document.getElementById('conn-dot').classList.remove('offline');
+    }
+    // Only advance forward from poll — protects against a stale static
+    // state.json (e.g., committed value on GitHub Pages) overwriting user clicks.
+    if (n > currentState) {
+      const wasFollowing = viewState === currentState;
+      currentState = n;
+      if (wasFollowing) {
+        viewState = n;
+        render();
+        setTimeout(() => {
+          const t = document.getElementById('terminal');
+          t.scrollTop = t.scrollHeight;
+        }, 50);
+      } else {
+        render();
+      }
+    }
+  } catch(e) {
+    connected = false;
+    document.getElementById('conn-dot').classList.add('offline');
+  }
+}
+
+async function demoAdvance() {
+  const btn = document.getElementById('btn-next');
+  btn.disabled = true;
+  // Client-side advance — works standalone (GitHub Pages, file://, etc.)
+  if (currentState < STATES.length - 1) {
+    currentState += 1;
+    viewState = currentState;
+    render();
+    setTimeout(() => {
+      const t = document.getElementById('terminal');
+      if (t) t.scrollTop = t.scrollHeight;
+    }, 50);
+  }
+  // Best-effort server sync (local server.py only; ignored elsewhere)
+  try { await fetch('/advance'); } catch(e) {}
+  btn.disabled = false;
+  btn.textContent = currentState >= STATES.length - 1 ? 'Done' : 'Next →';
+}
+
+async function demoReset() {
+  currentState = 0;
+  viewState = 0;
+  render();
+  try { await fetch('/reset'); } catch(e) {}
+  document.getElementById('btn-next').textContent = 'Next →';
+  document.getElementById('btn-next').disabled = false;
+}
+
+render();
+setInterval(poll, 1500);
+poll(); // immediate first poll
+</script>
+
+<script>
+// ── Prompt & Thinking data (indexed to match STATES[0..17]) ──
+var FOCUS = [
+  // 0 — Idle
+  null,
+
+  // 1 — Meta Orchestrator appears
+  { agent:'Meta Orchestrator', model:'claude-opus-4-6',
+    tools:['spawn_agent','write_file'],
+    instruction:'You are the Meta Orchestrator for the ki-web COB Rollout.\nCoordinate the research phase for onboarding ki-web to\nthe KiDEP PropertyWW domain event stream.\n\nSpawn a Research Agent to gather all context\nbefore any code is written.',
+    thinking:null, output:null },
+
+  // 2 — Meta spawns Research
+  { agent:'Meta Orchestrator', model:'claude-opus-4-6',
+    tools:['spawn_agent','write_file'],
+    instruction:'You are the Meta Orchestrator for the ki-web COB Rollout.\nCoordinate the research phase for onboarding ki-web to\nthe KiDEP PropertyWW domain event stream.\n\nSpawn a Research Agent to gather all context\nbefore any code is written.',
+    thinking:'Spawning Research Agent (Opus) with spawn + write tools.\nPassing the ki-web task brief and required output format.\nResearch will coordinate all retrieval via sub-agents.',
+    output:null },
+
+  // 3 — Research reads context
+  { agent:'Research Agent', model:'claude-opus-4-6',
+    tools:['spawn_agent','infodb_write'],
+    instruction:'Task: gather 4 items for ki-web COB onboarding:\n  1. Projection structure (existing ki-web patterns)\n  2. KiDEP event schema (PropertyWW domain events)\n  3. COB Rollout Playbook \u2014 ki-web section\n  4. Stream config conventions\n\nDelegate retrieval to a Haiku sub-agent (read-only tools).\nWrite completed findings to: info-db/ki-web.md',
+    thinking:'I need 4 items. I can parallelize most with 3 MCP calls:\ngithub \u2192 projections + config, notion \u2192 playbook.\nKiDEP schema may need a second targeted pass \u2014\nI\'ll validate after pass 1 and loop if needed.',
+    output:null },
+
+  // 4 — Research spawns Haiku
+  { agent:'Research \u2192 Haiku', model:'claude-haiku-4-5',
+    tools:['github_search','notion_fetch','jira_search'],
+    instruction:'Retrieve the following in parallel:\n  1. github_search("ki-web projection patterns")\n  2. notion_fetch("COB Rollout Playbook")\n  3. jira_search("ki-web COB config conventions")\n\nReturn structured results. Do not write to DB.\nRead-only tools only \u2014 no spawn, no write.\n\nNote: Haiku used here for cost efficiency. Opus reserved\nfor reasoning and orchestration decisions only.',
+    thinking:null, output:null },
+
+  // 5 — Haiku fires MCP calls
+  { agent:'Retrieve Information', model:'claude-haiku-4-5',
+    tools:['github_search','notion_fetch','jira_search'],
+    instruction:'Retrieve the following in parallel:\n  1. github_search("ki-web projection patterns")\n  2. notion_fetch("COB Rollout Playbook")\n  3. jira_search("ki-web COB config conventions")\n\nReturn structured results. Do not write to DB.',
+    thinking:'Firing 3 MCP calls in parallel.\ngithub tends to be slower (code search index).\nnotion + jira should return fast.\nHolding until all 3 complete.',
+    output:null },
+
+  // 6 — Partial responses
+  { agent:'Retrieve Information', model:'claude-haiku-4-5',
+    tools:['github_search','notion_fetch','jira_search'],
+    instruction:'Retrieve the following in parallel:\n  1. github_search("ki-web projection patterns")\n  2. notion_fetch("COB Rollout Playbook")\n  3. jira_search("ki-web COB config conventions")',
+    thinking:'notion \u2713 \u2014 playbook found, ki-web section present.\njira  \u2713 \u2014 config tickets retrieved.\ngithub \u27f3 \u2014 code search still running. Holding...',
+    output:null },
+
+  // 7 — All back, writing to DB
+  { agent:'Retrieve Information', model:'claude-haiku-4-5',
+    tools:['github_search','notion_fetch','jira_search'],
+    instruction:null,
+    thinking:'github \u2713 \u2014 PropertyWW + FI projection files found.\nNo KiDEP schema in results \u2014 not in projection search scope.\nWriting 3 entries to DB. Schema gap flagged in return value.',
+    output:null },
+
+  // 8 — Research reviews DB
+  { agent:'Research Agent', model:'claude-opus-4-6',
+    tools:['spawn_agent','infodb_write'],
+    instruction:null,
+    thinking:'DB has 3/4 entries. KiDEP event schema missing.\nHaiku searched ki-web repo \u2014 schema lives in kidep repo.\nSpawning Assumptions Invalidator to formally confirm the gap\nbefore committing to a second retrieval pass.',
+    output:null },
+
+  // 9 — Research spawns Invalidator
+  { agent:'Research \u2192 Invalidator', model:'claude-sonnet-4-6',
+    tools:['infodb_query'],
+    instruction:'Review the Information DB for ki-web COB onboarding.\nRequired entries:\n  \u25a2 Projection structure\n  \u25a2 KiDEP event schema   \u2190 expected missing\n  \u25a2 COB Rollout Playbook\n  \u25a2 Config conventions\n\nReport any gaps. Be strict. Missing = loop required.\nMax iterations: 5',
+    thinking:null, output:null },
+
+  // 10 — Invalidator reads DB
+  { agent:'Assumptions Invalidator', model:'claude-sonnet-4-6',
+    tools:['infodb_query'],
+    instruction:'Review the Information DB for ki-web COB onboarding.\nRequired: projection, schema, playbook, config.\nReport any gaps. Be strict. Missing = loop required.',
+    thinking:'Querying DB: infodb_query("ki-web \u2014 all entries")\n3 entries returned. Checking each required entry...',
+    output:null },
+
+  // 11 — Gap found
+  { agent:'Assumptions Invalidator', model:'claude-sonnet-4-6',
+    tools:['infodb_query'],
+    instruction:null,
+    thinking:'Projection structure \u2014 \u2713 sufficient\nCOB Playbook       \u2014 \u2713 ki-web section present\nConfig conventions \u2014 \u2713 stream config clear\nKiDEP event schema \u2014 \u2717 NOT FOUND\n\u2192 Cannot approve. Returning gap report.',
+    output:null },
+
+  // 12 — Loop begins
+  { agent:'Research Agent', model:'claude-opus-4-6',
+    tools:['spawn_agent','infodb_write'],
+    instruction:null,
+    thinking:'Gap confirmed: KiDEP event schema missing.\nIteration 2 of 5 (loop guard: max 5, then exit with partial).\nI know exactly what\'s needed \u2014 PropertyWWRisk.proto\nin the kidep repo. Spawning Haiku with a precise query.',
+    output:null },
+
+  // 13 — Research spawns Haiku pass 2
+  { agent:'Research \u2192 Haiku (pass 2)', model:'claude-haiku-4-5',
+    tools:['github_search'],
+    instruction:'One targeted retrieval:\n  github_search("KiDEP PropertyWW event schema proto")\n\nLook for PropertyWWRisk.proto or equivalent.\nReturn field definitions and eventType values.\nRepo: github:kidep (not ki-web).',
+    thinking:null, output:null },
+
+  // 14 — Targeted MCP call
+  { agent:'Retrieve Information', model:'claude-haiku-4-5',
+    tools:['github_search'],
+    instruction:'github_search("KiDEP PropertyWW event schema proto")\nLook for PropertyWWRisk.proto in github:kidep.',
+    thinking:'Single targeted call. Searching kidep repo\nfor .proto files matching PropertyWW.\nExpect faster return \u2014 only one call in flight.',
+    output:null },
+
+  // 15 — Schema found
+  { agent:'Retrieve Information', model:'claude-haiku-4-5',
+    tools:['github_search'],
+    instruction:null,
+    thinking:'Found: PropertyWWRisk.proto in github:kidep\nFields: eventType, policyRef, riskAddress,\n        sumInsured, coverageType, effectiveDate.\nWriting as DB entry 2. All 4 entries now populated.',
+    output:null },
+
+  // 16 — Re-check
+  { agent:'Assumptions Invalidator', model:'claude-sonnet-4-6',
+    tools:['infodb_query'],
+    instruction:null,
+    thinking:'Re-checking DB after loop 2...\nProjection structure  \u2014 \u2713\nKiDEP event schema   \u2014 \u2713 PropertyWWRisk.proto, complete\nCOB Playbook         \u2014 \u2713\nConfig conventions   \u2014 \u2713\n\u2192 All 4 entries sufficient. APPROVED. Loop exits.',
+    output:null },
+
+  // 17 — Complete
+  { agent:'Research Agent', model:'claude-opus-4-6',
+    tools:null,
+    instruction:null,
+    thinking:'Research phase complete. Returning to Meta Orchestrator.',
+    output:'# info-db/ki-web.md\n\nProjection structure  \u2713  PropertyWW + FI patterns\nKiDEP event schema    \u2713  PropertyWWRisk.proto\nCOB Rollout Playbook  \u2713  ki-web section\nConfig conventions    \u2713  stream, topic, registry\n\nReady for Build Agent \u2192 Zone 3.' },
+];
+
+// Patch focus into STATES
+STATES.forEach(function(s, i) { s.focus = (FOCUS[i] !== undefined ? FOCUS[i] : null); });
+
+// MCP request/response detail per step
+var MCP_DETAIL = {
+  5: [
+    { name:'github_search("ki-web projection")',
+      server:'github-mcp-server',
+      req:'GET api.github.com/search/code\n  q="PropertyWW+projection+repo:ki-web"\n  type=code  extension=kt',
+      status:'pending', res:null },
+    { name:'notion_fetch("COB Rollout Playbook")',
+      server:'notion-mcp-server',
+      req:'POST api.notion.com/v1/search\n  {"query": "COB Rollout Playbook"}\n  + GET /v1/pages/{id}/content',
+      status:'pending', res:null },
+    { name:'jira_search("ki-web COB config")',
+      server:'jira-mcp-server',
+      req:'GET jira.ki.com/rest/api/3/search\n  jql="project=COB AND label=ki-web"\n  fields=summary,description',
+      status:'pending', res:null },
+  ],
+  6: [
+    { name:'github_search("ki-web projection")',
+      server:'github-mcp-server',
+      req:'GET api.github.com/search/code\n  q="PropertyWW+projection+repo:ki-web"',
+      status:'pending', res:null },
+    { name:'notion_fetch("COB Rollout Playbook")',
+      server:'notion-mcp-server',
+      req:'POST api.notion.com/v1/search\n  {"query": "COB Rollout Playbook"}',
+      status:'done',
+      res:'200 OK\n  page: "COB Rollout Playbook"\n  \u2192 ki-web section: KiDEP subscription,\n    MDM pre-checks, stream config, deploy' },
+    { name:'jira_search("ki-web COB config")',
+      server:'jira-mcp-server',
+      req:'GET jira.ki.com/rest/api/3/search\n  jql="project=COB AND label=ki-web"',
+      status:'done',
+      res:'200 OK  3 issues\n  COB-441: ki-web stream config\n  COB-448: schema registry setup\n  COB-452: topic naming conventions' },
+  ],
+  7: [
+    { name:'github_search("ki-web projection")',
+      server:'github-mcp-server',
+      req:'GET api.github.com/search/code\n  q="PropertyWW+projection+repo:ki-web"',
+      status:'done',
+      res:'200 OK  8 files matched\n  PropertyWWProjection.kt (line 14)\n  FinancialInstitutionsProjection.kt (line 9)\n  ki-web-stream.yaml, application.yml' },
+    { name:'notion_fetch("COB Rollout Playbook")',
+      server:'notion-mcp-server',
+      req:'POST api.notion.com/v1/search',
+      status:'done',
+      res:'200 OK  ki-web section retrieved' },
+    { name:'jira_search("ki-web COB config")',
+      server:'jira-mcp-server',
+      req:'GET jira.ki.com/rest/api/3/search',
+      status:'done',
+      res:'200 OK  config extracted from 3 issues' },
+  ],
+  14: [
+    { name:'github_search("KiDEP PropertyWW schema")',
+      server:'github-mcp-server',
+      req:'GET api.github.com/search/code\n  q="PropertyWWRisk+extension:proto"\n  repo:kidep   \u2190 targeted repo, not ki-web',
+      status:'pending', res:null },
+  ],
+  15: [
+    { name:'github_search("KiDEP PropertyWW schema")',
+      server:'github-mcp-server',
+      req:'GET api.github.com/search/code\n  q="PropertyWWRisk+extension:proto"\n  repo:kidep',
+      status:'done',
+      res:'200 OK  1 file matched\n  events/PropertyWWRisk.proto\n  fields: eventType, policyRef,\n  riskAddress, sumInsured, coverageType' },
+  ],
+};
+
+// Per-step concept explanations (tutorial callouts)
+var CONCEPTS = {
+  1: { title:'Orchestrator pattern',
+       body:'The Meta agent doesn\'t retrieve or build \u2014 it only decides WHAT to spawn and WHEN. Splitting this "manager" layer from the do-ers makes debugging and scoping easier than one giant agent.' },
+  2: { title:'Sub-agent spawning',
+       body:'Spawning creates an isolated context: own system prompt, own tool list, own message history. Parent only sees the final completion \u2014 not the sub-agent\'s internal turns.' },
+  3: { title:'Thinking vs. doing',
+       body:'"Thinking" = extended reasoning, the agent\'s scratchpad. Visible to orchestrators for debugging, invisible to end users. Research plans strategy here before emitting any tool call.' },
+  4: { title:'Model tiering + least privilege',
+       body:'Haiku costs ~20\u00d7 less than Opus. For bounded retrieval (no reasoning needed), use the cheapest capable model. Read-only tools also enforce least privilege \u2014 Haiku cannot mutate anything.' },
+  5: { title:'Tools are the agent\'s world',
+       body:'A tool is a callable function declared in the agent\'s prompt. Calling one = emitting a structured tool_use block. The runtime dispatches \u2014 via MCP for tools registered with an MCP server.' },
+  7: { title:'Structured memory',
+       body:'The Information DB is a file, but with a schema defined by the parent agent. Schema-defined output makes it consumable by the next phase without interpretation \u2014 this is what enables loops.' },
+  9: { title:'Separation of concerns',
+       body:'Research wants to "be done." Invalidator\'s only incentive is "find what\'s missing." Different objectives produce better signal than self-evaluation. Common pattern: producer + critic.' },
+  11:{ title:'Structural gap detection',
+       body:'The Invalidator compares the DB against a required-entries list. Deterministic, specific, no vibe judgment \u2014 produces a concrete "schema missing" message, not "research looks incomplete."' },
+  12:{ title:'Bounded iteration',
+       body:'The loop is capped at 5 iterations. Past that: escalate to a human with partial results. Unbounded loops are a classic agent failure mode \u2014 always set a ceiling.' },
+  17:{ title:'Context handoff',
+       body:'The Information DB is the interface between phases. The Build Agent reads it cold \u2014 no access to Research\'s conversation, just the structured facts. This decouples phases cleanly.' },
+};
+
+// Update Prompt & Thinking + MCP Detail panels on each render
+window.afterRenderHook = function(vs) {
+  // ── Prompt & Thinking ──
+  var f = vs.focus || null;
+  var tag = document.getElementById('prompt-tag');
+  var body = document.getElementById('prompt-body');
+  if (tag) {
+    tag.textContent = f ? f.agent : '';
+    tag.title = f ? (f.model || '') : '';
+  }
+  if (body) {
+    var html = '';
+    if (f) {
+      if (f.tools && f.tools.length) {
+        html += '<span class="p-lbl">Tools</span><span class="p-tools">' + esc(f.tools.join('  \u00b7  ')) + '</span>';
+      }
+      if (f.instruction) {
+        html += '<span class="p-lbl">Prompt</span><span class="p-prompt">' + esc(f.instruction) + '</span>';
+      }
+      if (f.thinking) {
+        html += '<span class="p-lbl">Thinking</span><span class="p-think">' + esc(f.thinking) + '</span>';
+      }
+      if (f.output) {
+        html += '<span class="p-lbl">Output</span><span class="p-output">' + esc(f.output) + '</span>';
+      }
+    }
+    var cpt = CONCEPTS[viewState];
+    if (cpt) {
+      html += '<span class="p-lbl">Concept</span><div class="p-concept"><strong>' + esc(cpt.title) + '</strong>' + esc(cpt.body) + '</div>';
+    }
+    body.innerHTML = html || '<span class="p-none">\u2014</span>';
+  }
+
+  // ── MCP Detail ──
+  var calls = MCP_DETAIL[viewState] || null;
+  var detailEl = document.getElementById('mcp-detail');
+  var detailBody = document.getElementById('mcp-detail-body');
+  if (detailEl && detailBody) {
+    if (calls && calls.length) {
+      detailEl.style.display = '';
+      var dhtml = '';
+      calls.forEach(function(c) {
+        dhtml += '<div class="mcp-call-block">';
+        dhtml += '<div class="mcp-call-name">' + esc(c.name) + '</div>';
+        dhtml += '<div class="mcp-call-server">\u2192 ' + esc(c.server) + '</div>';
+        dhtml += '<span class="mcp-call-lbl">Request</span>';
+        dhtml += '<span class="mcp-call-req">' + esc(c.req) + '</span>';
+        if (c.status === 'done' && c.res) {
+          dhtml += '<span class="mcp-call-lbl" style="margin-top:4px">Response</span>';
+          dhtml += '<span class="mcp-call-res">' + esc(c.res) + '</span>';
+        } else {
+          dhtml += '<div class="mcp-call-pend">\u27f3 awaiting response...</div>';
+        }
+        dhtml += '</div>';
+      });
+      detailBody.innerHTML = dhtml;
+    } else {
+      detailEl.style.display = 'none';
+    }
+  }
+};
+
+// Re-render now that FOCUS and MCP_DETAIL data are patched in
+if (typeof render === 'function') render();
+</script>
+</body>
+</html>
